@@ -1,0 +1,187 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <title>Absensi Royal Government</title>
+  <style>
+    /* CSS styling */
+    body {
+      font-family: Arial, sans-serif;
+    }
+    
+    .container {
+      width: 400px;
+      margin: 0 auto;
+    }
+    
+    h2 {
+      text-align: center;
+    }
+    
+    input[type="text"], input[type="button"] {
+      display: block;
+      margin-bottom: 10px;
+      width: 100%;
+      padding: 5px;
+    }
+    
+    #timer {
+      font-size: 18px;
+      text-align: center;
+      margin-top: 10px;
+    }
+    
+    #output {
+      margin-top: 20px;
+      font-weight: bold;
+    }
+    
+    #logo {
+      display: block;
+      margin: 0 auto;
+      width: 100px;
+      height: 100px;
+      background: url("https://cdn.discordapp.com/attachments/1091336235718561873/1128035875629047910/LOGO_ROYAL_GOVERNMENT-10.png") no-repeat center center;
+      background-size: contain;
+    }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <h2><span id="logo"></span>Absensi Royal Government</h2>
+    <input type="text" id="nama" placeholder="Nama Pegawai" oninput="capitalizeName()">
+    <input type="button" id="toggleButton" value="On Duty" onclick="toggleDuty()">
+    <div id="timer"></div>
+    <div id="output"></div>
+    <input type="button" value="Download Excel" onclick="downloadExcel()">
+  </div>
+
+  <script src="https://unpkg.com/xlsx/dist/xlsx.full.min.js"></script>
+  <script src="https://unpkg.com/file-saver/dist/FileSaver.min.js"></script>
+  <script>
+    // Global variables
+    var employees = {};
+    var employee = null;
+    var startTime;
+    var timerInterval;
+
+    // Function to load stored employees data
+    function loadEmployeesData() {
+      var storedEmployees = localStorage.getItem("employees");
+      if (storedEmployees) {
+        employees = JSON.parse(storedEmployees);
+        var namaInput = document.getElementById("nama");
+        var storedNama = localStorage.getItem("nama");
+        if (storedNama && employees[storedNama]) {
+          namaInput.value = storedNama;
+          employee = employees[storedNama];
+          if (employee.onDuty) {
+            startTimer(); // Start timer if employee was on duty
+          }
+        }
+      }
+    }
+
+    // Call the function to load employees data when the page loads
+    loadEmployeesData();
+
+    // Function to handle on/off duty button click
+    function toggleDuty() {
+      var namaInput = document.getElementById("nama");
+      var nama = namaInput.value;
+      var button = document.getElementById("toggleButton");
+      
+      if (button.value === "On Duty") {
+        button.value = "Off Duty";
+        if (!employees[nama]) {
+          employees[nama] = {
+            onDuty: true,
+            startTime: new Date(),
+            totalSeconds: 0
+          };
+        }
+        employee = employees[nama];
+        startTimer();
+      } else {
+        button.value = "On Duty";
+        if (employee) {
+          stopTimer();
+          var endTime = new Date();
+          var diffMilliseconds = endTime - startTime; // Calculate time difference in milliseconds
+          var diffSeconds = Math.floor(diffMilliseconds / 1000); // Convert milliseconds to seconds
+          employee.onDuty = false;
+          employee.totalSeconds += diffSeconds;
+          var totalMinutes = Math.floor(employee.totalSeconds / 60); // Convert seconds to minutes
+          var totalSeconds = employee.totalSeconds % 60; // Remaining seconds
+          var output = document.getElementById("output");
+          output.innerText = "Total jam kerja: " + totalMinutes + " menit " + totalSeconds + " detik";
+        }
+      }
+
+      // Store employees data in local storage
+      localStorage.setItem("employees", JSON.stringify(employees));
+      localStorage.setItem("nama", nama);
+    }
+
+    // Function to start the timer
+    function startTimer() {
+      startTime = new Date();
+      timerInterval = setInterval(updateTimer, 1000);
+    }
+
+    // Function to stop the timer
+    function stopTimer() {
+      clearInterval(timerInterval);
+    }
+
+    // Function to update the timer display
+    function updateTimer() {
+      var timer = document.getElementById("timer");
+      var currentTime = new Date();
+      var diffMilliseconds = currentTime - startTime; // Calculate time difference in milliseconds
+      var diffSeconds = Math.floor(diffMilliseconds / 1000); // Convert milliseconds to seconds
+      var seconds = diffSeconds % 60;
+      var minutes = Math.floor(diffSeconds / 60) % 60;
+      var hours = Math.floor(diffSeconds / 3600);
+      timer.innerText = "Waktu Kerja: " + padZero(hours) + ":" + padZero(minutes) + ":" + padZero(seconds);
+    }
+
+    // Function to pad single-digit numbers with leading zero
+    function padZero(num) {
+      return (num < 10 ? "0" : "") + num;
+    }
+
+    // Function to download data as Excel file
+    function downloadExcel() {
+      var data = [["Nama", "Total Menit", "Total Detik"]];
+      for (var nama in employees) {
+        var totalMinutes = Math.floor(employees[nama].totalSeconds / 60);
+        var totalSeconds = employees[nama].totalSeconds % 60;
+        data.push([nama, totalMinutes, totalSeconds]);
+      }
+
+      var wb = XLSX.utils.book_new();
+      var ws = XLSX.utils.aoa_to_sheet(data);
+      XLSX.utils.book_append_sheet(wb, ws, "Absensi");
+      var wbout = XLSX.write(wb, { bookType: "xlsx", type: "binary" });
+
+      function s2ab(s) {
+        var buf = new ArrayBuffer(s.length);
+        var view = new Uint8Array(buf);
+        for (var i = 0; i < s.length; i++) view[i] = s.charCodeAt(i) & 0xff;
+        return buf;
+      }
+
+      saveAs(
+        new Blob([s2ab(wbout)], { type: "application/octet-stream" }),
+        "absensi.xlsx"
+      );
+    }
+
+    // Function to capitalize the name input
+    function capitalizeName() {
+      var namaInput = document.getElementById("nama");
+      namaInput.value = namaInput.value.toUpperCase();
+    }
+  </script>
+</body>
+</html>
